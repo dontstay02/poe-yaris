@@ -1,0 +1,42 @@
+{
+ "player": "Can",
+ "league": "Standard",
+ "updatedAt": 1794416313239,
+ "total": 469.23,
+ "divine": 826.3,
+ "count": 16,
+ "rate": null,
+ "hours": 0,
+ "gain": 0,
+ "ninja": "https://poe.ninja/poe1/builds/standard/character/FearofArmy-4335/S2ci",
+ "gainDay": null,
+ "gainWeek": null,
+ "drops": [],
+ "history": [
+  {
+   "at": 1794416313213,
+   "total": 469.23
+  }
+ ],
+ "categories": [
+  {
+   "label": "Currency",
+   "total": 331.53
+  },
+  {
+   "label": "Gem",
+   "total": 1
+  },
+  {
+   "label": "Ekipman",
+   "total": 136.7
+  }
+ ],
+ "sources": [
+  {
+   "name": "CycloneSarigul",
+   "total": 469.23,
+   "count": 16
+  }
+ ]
+}
