@@ -114,6 +114,7 @@ a.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
       <button data-mode="day">Bugün</button>
       <button data-mode="week">Bu hafta</button>
     </div>
+    <button id="langBtn" type="button">EN</button>
     <button id="refresh">Yenile</button>
   </header>
 
@@ -130,6 +131,132 @@ a.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 <script>
 'use strict';
+
+// ---------- Dil: Türkçe (varsayılan) / İngilizce ----------
+// Site Türkçe yazılır; İngilizce seçiliyse sayfadaki metinler bu sözlükle çevrilir
+// (sonradan çizilenler dahil). Oyuncu ve karakter adları sözlüğe uymadığı için olduğu gibi kalır.
+const LANG = (() => {
+  try {
+    const saved = localStorage.getItem('yaris.lang');
+    if (saved === 'tr' || saved === 'en') return saved;
+  } catch {
+    /* saklanamıyor */
+  }
+  return /^tr\b/i.test(navigator.language || 'tr') ? 'tr' : 'en';
+})();
+const LOCALE = LANG === 'en' ? 'en-US' : 'tr-TR';
+const percent = (n) => (LANG === 'en' ? `${n}%` : `%${n}`);
+const I18N = (() => {
+  const EXACT = new Map(Object.entries({
+    'Div Yarışı': 'Div Race',
+    Sıralama: 'Ranking',
+    Toplam: 'Total',
+    Bugün: 'Today',
+    'Bu hafta': 'This week',
+    Yenile: 'Refresh',
+    'Yükleniyor…': 'Loading…',
+    'Bu uygulama Grinding Gear Games ile bağlantılı değildir ve onlar tarafından onaylanmamıştır.': '',
+    'Henüz kimse skor göndermedi. Uygulamada yarış ayarlarını doldurup bir tarama yapınca burada görünür.': 'Nobody has sent a score yet. Fill in the race settings in the app and run a scan to appear here.',
+    lider: 'leader',
+    'en hızlı': 'fastest',
+    'kazanç bekleniyor': 'waiting for profit',
+    'az önce': 'just now',
+    'Yarış bitti.': 'The race is over.',
+    'Yarış sürüyor': 'Race in progress',
+    Yarış: 'Race',
+    'Son büyük düşüşler': 'Recent big drops',
+    'Önceki oyuncu': 'Previous player',
+    'Sonraki oyuncu': 'Next player',
+    '← Önceki': '← Previous',
+    'Sonraki →': 'Next →',
+    'poe.ninja karakteri': 'poe.ninja character',
+    'Toplam değer': 'Total value',
+    divine: 'divine',
+    'Saatlik kazanç': 'Hourly profit',
+    Seans: 'Session',
+    'Seans kazancı': 'Session profit',
+    Eşya: 'Items',
+    'Nereden geliyor: kategoriler': 'Where it comes from: categories',
+    'Nereden geliyor: sekmeler': 'Where it comes from: tabs',
+    'Toplam değerin zaman içindeki değişimi': 'Total value over time',
+    'Her yenilemeden sonra 1 dakika beklenir': 'Wait 1 minute after each refresh',
+    'Şimdi yenile. Sayfa 30 dakikada bir kendisi de yenilenir.': 'Refresh now. The page also refreshes itself every 30 minutes.',
+    Ekipman: 'Gear',
+    Diğer: 'Other',
+    'Örnek Lig': 'Sample league',
+    Satılık: 'For sale',
+  }));
+  const P = [
+    [/^(\d+) dk önce$/, '$1 min ago'],
+    [/^(\d+) sa önce$/, '$1 h ago'],
+    [/^(\d+) gün önce$/, '$1 days ago'],
+    [/^(\d+) gün (\d+) sa$/, '$1 d $2 h'],
+    [/^(\d+) sa (\d+) dk$/, '$1 h $2 min'],
+    [/^(\d+) dk$/, '$1 min'],
+    [/^(.+)\/sa$/, '$1/h'],
+    [/^toplam ([^·]+)$/, 'total $1'],
+    [/^liderin (.+) gerisinde · (.+?)( \(güncel değil\))?$/, (m, a, b, c) => `${a} behind the leader · ${t(b)}${c ? ' (out of date)' : ''}`],
+    [/^(lider|toplam .+) · (.+?)( \(güncel değil\))?$/, (m, a, b, c) => `${t(a)} · ${t(b)}${c ? ' (out of date)' : ''}`],
+    [/^(.+) · örnek veri$/, (m, a) => `${t(a)} · sample data`],
+    [/^(.+) hedefe ulaştı \((.+)\)$/, '$1 reached the goal ($2)'],
+    [/^Başlamasına (.+)$/, (m, a) => `Starts in ${t(a)}`],
+    [/^Yarış bitti\. Kazanan: (.+) \((.+)\)$/, 'The race is over. Winner: $1 ($2)'],
+    [/^Bitişe (.+)$/, (m, a) => `Ends in ${t(a)}`],
+    [/^Hedef: (.+?)(?:, lidere (.+) kaldı)?$/, (m, a, b) => `Goal: ${a}${b ? `, leader needs ${b} more` : ''}`],
+    [/^(.+) ile (.+) arası$/, '$1 to $2'],
+    [/^([\d.,]+) eşya$/, '$1 items'],
+    [/^(.+) ligine (\d+) sa (\d+) dk$/, '$1 league in $2 h $3 min'],
+    [/^(.+) ligi başladı · (.+)$/, (m, a, b) => `${a} league started · ${t(b)}`],
+    [/^(.+), saat tahmini$/, '$1, time estimated'],
+    [/^Başlangıç: (.+) \(senin saatinle\)$/, 'Start: $1 (your time)'],
+    [/^Tarih GGG tarafından açıklandı, saat henüz açıklanmadı\. 13:00 Pasifik saati tahmin edildi: (.+) \(senin saatinle\)\.$/, 'GGG announced the date but not the time yet. Estimated 13:00 Pacific: $1 (your time).'],
+    [/^Yenile \((\d+)\)$/, 'Refresh ($1)'],
+    [/^Veri klasörü okunamadı \(HTTP (\d+)\)\. Biraz sonra tekrar dene\.$/, 'Could not read the data folder (HTTP $1). Try again shortly.'],
+  ];
+  const memo = new Map();
+  function t(str) {
+    if (LANG !== 'en' || !str) return str;
+    if (memo.has(str)) return memo.get(str);
+    let out = str;
+    if (EXACT.has(str)) out = EXACT.get(str);
+    else for (const [re, r] of P) if (re.test(str)) { out = str.replace(re, r); break; }
+    if (memo.size > 3000) memo.clear();
+    memo.set(str, out);
+    return out;
+  }
+  const ATTRS = ['title', 'aria-label', 'placeholder'];
+  const text = (n) => { const v = n.nodeValue; const c = v.trim(); if (!c) return; const o = t(c); if (o !== c) n.nodeValue = v.replace(c, o); };
+  const attrs = (el) => { for (const a of ATTRS) { const v = el.getAttribute && el.getAttribute(a); if (v) { const o = t(v); if (o !== v) el.setAttribute(a, o); } } };
+  function walk(root) {
+    if (root.nodeType === 3) return text(root);
+    if (root.nodeType !== 1 || root.tagName === 'SCRIPT' || root.tagName === 'STYLE') return;
+    attrs(root);
+    const tw = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+    for (let n = tw.nextNode(); n; n = tw.nextNode()) n.nodeType === 3 ? text(n) : attrs(n);
+  }
+  function start() {
+    document.documentElement.lang = LANG;
+    const b = document.getElementById('langBtn');
+    b.textContent = LANG === 'en' ? 'TR' : 'EN';
+    b.title = LANG === 'en' ? 'Türkçe' : 'English';
+    b.addEventListener('click', () => {
+      try { localStorage.setItem('yaris.lang', LANG === 'en' ? 'tr' : 'en'); } catch { /* saklanamıyor */ }
+      location.reload();
+    });
+    if (LANG !== 'en') return;
+    document.title = t(document.title);
+    walk(document.body);
+    new MutationObserver((list) => {
+      for (const m of list) {
+        if (m.type === 'characterData') text(m.target);
+        else if (m.type === 'attributes') attrs(m.target);
+        else for (const n of m.addedNodes) walk(n);
+      }
+    }).observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ATTRS });
+  }
+  return { t, start };
+})();
+I18N.start();
 const $ = (id) => document.getElementById(id);
 function h(tag, attrs, ...children) {
   const el = document.createElement(tag);
@@ -142,9 +269,9 @@ function h(tag, attrs, ...children) {
   for (const c of children.flat()) if (c !== null && c !== undefined && c !== false) el.append(c.nodeType ? c : document.createTextNode(String(c)));
   return el;
 }
-const nf = new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 0 });
-const nf1 = new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 1 });
-const nf2 = new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 2 });
+const nf = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 0 });
+const nf1 = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 1 });
+const nf2 = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 2 });
 const COLORS = ['#c9bb96', '#dc7c3c', '#2fc4bb', '#b79cf0', '#f5eb7a', '#7d7468', '#7c8cff', '#f87171'];
 
 let players = [];
@@ -318,7 +445,7 @@ function renderRace() {
   else if (start && now < start) status = `Başlamasına ${dur(start - now)}`;
   else if (end && now >= end) status = leader ? `Yarış bitti. Kazanan: ${leader.player} (${divText(toDiv(leader, leader.total))})` : 'Yarış bitti.';
   else status = end ? `Bitişe ${dur(end - now)}` : 'Yarış sürüyor';
-  const day = (t) => new Date(t).toLocaleString('tr-TR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+  const day = (t) => new Date(t).toLocaleString(LOCALE, { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
   el.replaceChildren(
     h('b', {}, race.name || 'Yarış'),
     h('span', { class: 'st' }, status),
@@ -365,7 +492,7 @@ function renderDetail(ranked, p) {
     parts.push(h('div', {},
       h('h2', {}, 'Nereden geliyor: kategoriler'),
       h('div', { class: 'bar', style: 'margin-top:10px' }, ...cats.map((c, i) => h('span', { style: `width:${(c.total / p.total) * 100}%;background:${COLORS[i % COLORS.length]}` }))),
-      h('div', { class: 'legend' }, ...cats.map((c, i) => h('span', {}, h('i', { style: `background:${COLORS[i % COLORS.length]}` }), c.label, h('b', {}, divText(toDiv(p, c.total))), `%${nf.format((c.total / p.total) * 100)}`)))));
+      h('div', { class: 'legend' }, ...cats.map((c, i) => h('span', {}, h('i', { style: `background:${COLORS[i % COLORS.length]}` }), c.label, h('b', {}, divText(toDiv(p, c.total))), percent(nf.format((c.total / p.total) * 100)))))));
   }
   const srcs = (p.sources || []).filter((s) => s.total > 0).sort((a, b) => b.total - a.total);
   if (srcs.length) {
@@ -396,7 +523,7 @@ function renderLeague() {
     return;
   }
   el.hidden = false;
-  const when = new Date(t).toLocaleString('tr-TR', { day: 'numeric', month: 'long', weekday: 'long', hour: '2-digit', minute: '2-digit' });
+  const when = new Date(t).toLocaleString(LOCALE, { day: 'numeric', month: 'long', weekday: 'long', hour: '2-digit', minute: '2-digit' });
   let main;
   if (diff > 0) {
     const hours = Math.floor(diff / 36e5);
