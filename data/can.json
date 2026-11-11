@@ -1,9 +1,9 @@
 {
  "player": "Can",
  "league": "Standard",
- "updatedAt": 1794416313239,
- "total": 469.23,
- "divine": 826.3,
+ "updatedAt": 1794420289759,
+ "total": 474.36,
+ "divine": 825.8,
  "count": 16,
  "rate": null,
  "hours": 0,
@@ -14,14 +14,14 @@
  "drops": [],
  "history": [
   {
-   "at": 1794416313213,
-   "total": 469.23
+   "at": 1794420289740,
+   "total": 474.36
   }
  ],
  "categories": [
   {
    "label": "Currency",
-   "total": 331.53
+   "total": 334.76
   },
   {
    "label": "Gem",
@@ -29,13 +29,13 @@
   },
   {
    "label": "Ekipman",
-   "total": 136.7
+   "total": 138.6
   }
  ],
  "sources": [
   {
    "name": "CycloneSarigul",
-   "total": 469.23,
+   "total": 474.36,
    "count": 16
   }
  ]
