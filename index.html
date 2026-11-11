@@ -15,6 +15,10 @@
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
+.ltab { display: inline-flex; flex-direction: column; justify-content: center; min-height: 36px; padding: 3px 12px; border-radius: 10px; font-size: 13px; font-weight: 600; color: var(--amber); background: var(--amber-soft); border: 1px solid rgba(243,198,89,.3); font-variant-numeric: tabular-nums; line-height: 1.3; }
+.ltab small { font-size: 11.5px; font-weight: 400; color: var(--muted); }
+button:disabled { opacity: .5; cursor: default; }
+button:disabled:hover { background: var(--surface-2); border-color: var(--border); }
 body {
   margin: 0; color: var(--text); font: 14px/1.5 "Inter", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
   background: radial-gradient(900px 420px at 18% -180px, rgba(124,140,255,.13), transparent 70%), radial-gradient(700px 380px at 92% -200px, rgba(176,108,255,.09), transparent 70%), var(--bg);
@@ -102,6 +106,7 @@ a.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   <header>
     <span class="logo" aria-hidden="true"></span>
     <h1>Div Yarışı</h1>
+    <span id="leagueTab" class="ltab" hidden></span>
     <span id="meta" class="muted"></span>
     <span class="spacer"></span>
     <div class="seg" id="mode" role="group" aria-label="Sıralama">
@@ -144,7 +149,22 @@ const COLORS = ['#c9bb96', '#dc7c3c', '#2fc4bb', '#b79cf0', '#f5eb7a', '#7d7468'
 
 let players = [];
 let selected = '';
-let race = null; // race.json: { name, start, end, goal }
+let race = null; // race.json: { name, start, end, goal, leagueName, leagueStart, leagueStartConfirmed }
+
+// Yeni lig: GGG 3.30 için 13 Kasım 2026'yı açıkladı ama başlama saatini açıklamadı.
+// PoE 1 ligleri genelde Pasifik saatiyle 13:00'te açıldığı için 21:00 UTC tahmin edildi.
+// Saat açıklanınca race.json'a leagueStart (ör. "2026-11-13T21:00:00Z") yazmak yeterli.
+const LEAGUE_DEFAULT = { name: '3.30', start: '2026-11-13T21:00:00Z', confirmed: false };
+
+// Yenileme: otomatik 30 dakikada bir; elle yenilemeden sonra 1 dakika beklenir.
+const AUTO_REFRESH_MS = 30 * 60 * 1000;
+const MANUAL_COOLDOWN_MS = 60 * 1000;
+let lastManual = 0;
+try {
+  lastManual = Number(localStorage.getItem('yaris.lastManual')) || 0;
+} catch {
+  /* saklanamıyor */
+}
 let mode = 'total'; // sıralama: toplam değer, bugünkü kazanç ya da haftalık kazanç
 
 // Değerler chaos olarak gelir; oyuncunun kendi divine kuruyla divine'a çevrilir.
@@ -360,6 +380,43 @@ function renderDetail(ranked, p) {
   el.replaceChildren(...parts);
 }
 
+function renderLeague() {
+  const el = $('leagueTab');
+  const cfg = { ...LEAGUE_DEFAULT };
+  if (race && race.leagueName) cfg.name = String(race.leagueName).slice(0, 30);
+  if (race && race.leagueStart) {
+    cfg.start = race.leagueStart;
+    cfg.confirmed = race.leagueStartConfirmed !== false;
+  }
+  const t = Date.parse(cfg.start);
+  const diff = t - Date.now();
+  // Lig başladıktan bir hafta sonra sekme kalkar.
+  if (!t || diff < -7 * 864e5) {
+    el.hidden = true;
+    return;
+  }
+  el.hidden = false;
+  const when = new Date(t).toLocaleString('tr-TR', { day: 'numeric', month: 'long', weekday: 'long', hour: '2-digit', minute: '2-digit' });
+  let main;
+  if (diff > 0) {
+    const hours = Math.floor(diff / 36e5);
+    const mins = Math.floor((diff % 36e5) / 6e4);
+    main = `${cfg.name} ligine ${hours} sa ${mins} dk`;
+  } else {
+    main = `${cfg.name} ligi başladı · ${ago(t)}`;
+  }
+  el.replaceChildren(main, h('small', {}, `${when}${cfg.confirmed ? '' : ', saat tahmini'}`));
+  el.title = cfg.confirmed ? `Başlangıç: ${when} (senin saatinle)` : `Tarih GGG tarafından açıklandı, saat henüz açıklanmadı. 13:00 Pasifik saati tahmin edildi: ${when} (senin saatinle).`;
+}
+
+function refreshButton() {
+  const b = $('refresh');
+  const left = lastManual + MANUAL_COOLDOWN_MS - Date.now();
+  b.disabled = left > 0;
+  b.textContent = left > 0 ? `Yenile (${Math.ceil(left / 1000)})` : 'Yenile';
+  b.title = left > 0 ? 'Her yenilemeden sonra 1 dakika beklenir' : 'Şimdi yenile. Sayfa 30 dakikada bir kendisi de yenilenir.';
+}
+
 async function loadRace() {
   try {
     const r = await fetch(`race.json?t=${Date.now()}`, { cache: 'no-store' });
@@ -373,12 +430,27 @@ async function loadRace() {
 async function refresh() {
   try {
     [players, race] = await Promise.all([load(), loadRace()]);
+    renderLeague();
     render();
   } catch (e) {
     $('board').replaceChildren(h('div', { class: 'empty' }, e.message));
   }
 }
-$('refresh').addEventListener('click', refresh);
+$('refresh').addEventListener('click', () => {
+  if (lastManual + MANUAL_COOLDOWN_MS > Date.now()) return;
+  lastManual = Date.now();
+  try {
+    localStorage.setItem('yaris.lastManual', String(lastManual));
+  } catch {
+    /* saklanamıyor */
+  }
+  refreshButton();
+  refresh();
+});
+setInterval(refreshButton, 1000);
+setInterval(renderLeague, 30000);
+refreshButton();
+renderLeague();
 for (const b of document.querySelectorAll('#mode button')) b.addEventListener('click', () => { mode = b.dataset.mode; render(); });
 setInterval(() => players.length && renderRace(), 60000);
 document.addEventListener('keydown', (e) => {
@@ -388,7 +460,7 @@ document.addEventListener('keydown', (e) => {
   selected = ranked[(i + (e.key === 'ArrowRight' ? 1 : -1) + ranked.length) % ranked.length].player;
   render();
 });
-setInterval(refresh, 3 * 60 * 1000);
+setInterval(refresh, AUTO_REFRESH_MS);
 refresh();
 </script>
 </body>
