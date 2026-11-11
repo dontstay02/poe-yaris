@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Div Yarışı</title>
+<style>
+:root {
+  --bg: #0a0b0f; --surface: #111319; --surface-2: #171a22; --surface-3: #1f232e;
+  --border: rgba(255,255,255,.07); --border-strong: rgba(255,255,255,.14);
+  --text: #e9ebf1; --muted: #8b91a3; --faint: #5c6274;
+  --accent: #7c8cff; --accent-soft: rgba(124,140,255,.14);
+  --amber: #f3c659; --amber-soft: rgba(243,198,89,.12);
+  --ok: #4ade80; --danger: #f87171;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; color: var(--text); font: 14px/1.5 "Inter", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  background: radial-gradient(900px 420px at 18% -180px, rgba(124,140,255,.13), transparent 70%), radial-gradient(700px 380px at 92% -200px, rgba(176,108,255,.09), transparent 70%), var(--bg);
+  background-attachment: fixed; min-height: 100vh;
+}
+.wrap { max-width: 1040px; margin: 0 auto; padding: 24px 16px 56px; display: flex; flex-direction: column; gap: 16px; }
+header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.logo { width: 30px; height: 30px; border-radius: 9px; background: linear-gradient(135deg, #8b9bff, #b06cff); position: relative; flex: none; }
+.logo::after { content: ""; position: absolute; inset: 9px; background: #fff; transform: rotate(45deg); border-radius: 2px; }
+h1 { margin: 0; font-size: 20px; font-weight: 650; letter-spacing: -.015em; }
+h2 { margin: 0; font-size: 14px; font-weight: 600; }
+.muted { color: var(--muted); font-size: 13px; }
+.spacer { margin-left: auto; }
+button { font: inherit; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: 9px; padding: 6px 12px; min-height: 36px; cursor: pointer; font-weight: 500; }
+button:hover { background: var(--surface-3); border-color: var(--border-strong); }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; }
+.board { overflow: hidden; }
+.rowp { display: grid; grid-template-columns: 34px minmax(0,1.2fr) minmax(0,2fr) auto; gap: 14px; align-items: center; width: 100%; text-align: left; padding: 12px 16px; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; background: transparent; min-height: 64px; }
+.rowp:last-child { border-bottom: 0; }
+.rowp:hover { background: rgba(255,255,255,.03); border-color: var(--border); }
+.rowp.on { background: var(--accent-soft); }
+.rank { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-weight: 650; font-size: 13px; background: var(--surface-3); color: var(--muted); }
+.rowp:nth-child(1) .rank { background: var(--amber-soft); color: var(--amber); }
+.name { font-weight: 600; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.name small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; }
+.name small.stale { color: var(--danger); }
+.pill { display: inline-block; margin-left: 8px; padding: 0 8px; border-radius: 999px; font-size: 11px; font-weight: 600; line-height: 1.7; color: var(--ok); background: rgba(74,222,128,.12); vertical-align: 2px; }
+.meter { height: 8px; border-radius: 999px; background: var(--surface-3); overflow: hidden; }
+.meter span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--accent), #b06cff); }
+.score { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.score b { font-size: 17px; font-weight: 650; color: var(--amber); letter-spacing: -.01em; }
+.score small { display: block; color: var(--muted); font-size: 12px; }
+.up { color: var(--ok) !important; } .down { color: var(--danger) !important; }
+.detail { padding: 20px; display: flex; flex-direction: column; gap: 18px; }
+.dhead { display: flex; align-items: flex-end; gap: 28px; flex-wrap: wrap; }
+.big { font-size: 40px; line-height: 1.1; font-weight: 650; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.big small { font-size: 16px; font-weight: 500; color: var(--muted); letter-spacing: 0; margin-left: 6px; }
+.stats { display: flex; gap: 12px; flex-wrap: wrap; margin-left: auto; }
+.stat { min-width: 130px; padding: 10px 14px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--border); }
+.stat .k { color: var(--muted); font-size: 12.5px; }
+.stat .v { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+svg.chart { display: block; width: 100%; height: 90px; }
+.line { fill: none; stroke: var(--accent); stroke-width: 2; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+.area { fill: var(--accent-soft); }
+.bar { display: flex; height: 8px; border-radius: 999px; overflow: hidden; background: var(--surface-3); gap: 2px; }
+.bar span { display: block; min-width: 3px; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 20px; font-size: 12.5px; color: var(--muted); margin-top: 8px; }
+.legend i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 7px; }
+.legend b { color: var(--text); font-weight: 600; margin: 0 4px; font-variant-numeric: tabular-nums; }
+.src { display: grid; grid-template-columns: minmax(0,1.3fr) minmax(0,2fr) auto; gap: 14px; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--border); }
+.src:last-child { border-bottom: 0; }
+.src .n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.src .n small { color: var(--muted); margin-left: 8px; }
+.src .v { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; font-weight: 600; }
+.seg { display: inline-flex; padding: 2px; border-radius: 9px; background: var(--surface-2); border: 1px solid var(--border); }
+.seg button { border: 0; background: transparent; min-height: 30px; padding: 2px 12px; font-size: 13px; color: var(--muted); border-radius: 7px; }
+.seg button.on { background: var(--surface-3); color: var(--text); }
+.race { padding: 14px 18px; display: flex; align-items: center; gap: 10px 22px; flex-wrap: wrap; border-color: rgba(243,198,89,.3); background: linear-gradient(90deg, rgba(243,198,89,.08), transparent 60%), var(--surface); }
+.race b { font-size: 15px; }
+.race .st { color: var(--amber); font-weight: 600; }
+.feed { padding: 16px 18px; display: flex; flex-direction: column; gap: 8px; }
+.drop { display: grid; grid-template-columns: auto minmax(0,1fr) auto auto; gap: 12px; align-items: baseline; padding: 5px 0; border-bottom: 1px solid var(--border); }
+.drop:last-child { border-bottom: 0; }
+.drop .who { font-weight: 600; }
+.drop .what { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #f08a4b; }
+.drop .val { color: var(--amber); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.links { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 12px 16px; border-top: 1px solid var(--border); }
+a.btn { display: inline-flex; align-items: center; min-height: 34px; padding: 4px 12px; border-radius: 9px; font-weight: 600; font-size: 13px; text-decoration: none; color: var(--accent); background: var(--accent-soft); border: 1px solid transparent; }
+a.btn:hover { background: var(--accent); color: #fff; }
+a.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.legal { text-align: center; color: var(--faint); font-size: 12px; line-height: 1.6; padding-top: 8px; }
+.empty { padding: 36px 20px; text-align: center; color: var(--muted); }
+.nav { display: flex; gap: 8px; align-items: center; }
+@media (max-width: 640px) {
+  .rowp { grid-template-columns: 30px minmax(0,1fr) auto; }
+  .rowp .meter { display: none; }
+  .stats { margin-left: 0; }
+  .big { font-size: 32px; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="logo" aria-hidden="true"></span>
+    <h1>Div Yarışı</h1>
+    <span id="meta" class="muted"></span>
+    <span class="spacer"></span>
+    <div class="seg" id="mode" role="group" aria-label="Sıralama">
+      <button data-mode="total">Toplam</button>
+      <button data-mode="day">Bugün</button>
+      <button data-mode="week">Bu hafta</button>
+    </div>
+    <button id="refresh">Yenile</button>
+  </header>
+
+  <section class="card race" id="race" hidden></section>
+
+  <section class="card board" id="board"><div class="empty">Yükleniyor…</div></section>
+
+  <section class="card feed" id="feed" hidden></section>
+
+  <section class="card detail" id="detail" hidden></section>
+
+  <footer class="legal">Bu uygulama Grinding Gear Games ile bağlantılı değildir ve onlar tarafından onaylanmamıştır.<br>This product isn't affiliated with or endorsed by Grinding Gear Games in any way.</footer>
+</div>
+
+<script>
+'use strict';
+const $ = (id) => document.getElementById(id);
+function h(tag, attrs, ...children) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v === false || v === null || v === undefined) continue;
+    if (k === 'class') el.className = v;
+    else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
+    else el.setAttribute(k, v);
+  }
+  for (const c of children.flat()) if (c !== null && c !== undefined && c !== false) el.append(c.nodeType ? c : document.createTextNode(String(c)));
+  return el;
+}
+const nf = new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 0 });
+const nf1 = new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 1 });
+const nf2 = new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 2 });
+const COLORS = ['#c9bb96', '#dc7c3c', '#2fc4bb', '#b79cf0', '#f5eb7a', '#7d7468', '#7c8cff', '#f87171'];
+
+let players = [];
+let selected = '';
+let race = null; // race.json: { name, start, end, goal }
+let mode = 'total'; // sıralama: toplam değer, bugünkü kazanç ya da haftalık kazanç
+
+// Değerler chaos olarak gelir; oyuncunun kendi divine kuruyla divine'a çevrilir.
+const toDiv = (p, chaos) => (p.divine > 0 ? chaos / p.divine : 0);
+const divText = (d) => `${Math.abs(d) >= 100 ? nf.format(d) : Math.abs(d) >= 10 ? nf1.format(d) : nf2.format(d)} div`;
+const chaosText = (c) => `${nf.format(c)} c`;
+const signed = (d) => `${d >= 0 ? '+' : '−'}${divText(Math.abs(d))}`;
+// Seçili moda göre oyuncunun divine cinsinden puanı; veri yoksa en sona düşer.
+function metric(p) {
+  const v = mode === 'day' ? p.gainDay : mode === 'week' ? p.gainWeek : p.total;
+  return typeof v === 'number' ? toDiv(p, v) : -Infinity;
+}
+const rank = () => [...players].sort((a, b) => metric(b) - metric(a));
+function dur(ms) {
+  const m = Math.max(0, Math.round(ms / 60000));
+  if (m < 60) return `${m} dk`;
+  if (m < 1440) return `${Math.floor(m / 60)} sa ${m % 60} dk`;
+  return `${Math.floor(m / 1440)} gün ${Math.floor((m % 1440) / 60)} sa`;
+}
+// Yalnızca poe.ninja adresleri bağlantı olarak kabul edilir.
+const ninjaUrl = (p) => (typeof p.ninja === 'string' && p.ninja.startsWith('https://poe.ninja/') ? p.ninja : '');
+function ago(t) {
+  const m = Math.max(0, (Date.now() - t) / 60000);
+  if (m < 1) return 'az önce';
+  if (m < 60) return `${Math.round(m)} dk önce`;
+  if (m < 1440) return `${Math.round(m / 60)} sa önce`;
+  return `${Math.round(m / 1440)} gün önce`;
+}
+
+// Veri kaynağı: GitHub Pages'te deponun data/ klasörü. ?repo=kullanici/depo ile başka yerden,
+// ?demo ile örnek veriyle açılabilir.
+function repoFromLocation() {
+  const q = new URLSearchParams(location.search);
+  if (q.has('demo')) return null;
+  if (q.get('repo')) return q.get('repo');
+  const m = /^([a-z0-9-]+)\.github\.io$/i.exec(location.hostname);
+  if (!m) return null;
+  const seg = location.pathname.split('/').filter(Boolean)[0];
+  return `${m[1]}/${seg && !seg.endsWith('.html') ? seg : `${m[1]}.github.io`}`;
+}
+
+function demoData() {
+  const now = Date.now();
+  const mk = (player, total, rate, hours, cats, srcs, drops = []) => ({
+    player, league: 'Örnek Lig', updatedAt: now - Math.random() * 20 * 60000, total, divine: 200, count: 300, rate, hours, gain: rate * hours,
+    ninja: `https://poe.ninja/poe1/builds/standard/character/Ornek-0000/${player}`,
+    gainDay: rate * hours * 0.8, gainWeek: total * (0.3 + Math.random() * 0.4), drops,
+    history: Array.from({ length: 12 }, (_, i) => ({ at: now - (11 - i) * (hours * 3600000 / 11), total: total - rate * hours * (1 - i / 11) * (0.85 + Math.random() * 0.3) })),
+    categories: cats.map(([label, share]) => ({ label, total: total * share })),
+    sources: srcs.map(([name, share, count]) => ({ name, total: total * share, count })),
+  });
+  return [
+    mk('Can', 87400, 3100, 6.5, [['Currency', .46], ['Unique', .22], ['Map', .12], ['Ekipman', .2]], [['Currency', .46, 61], ['Dump 1', .31, 140], ['Maps', .12, 72], ['Satılık', .11, 18]], [{ at: now - 50 * 60000, name: 'The Doctor', total: 1400 }]),
+    mk('Mert', 64200, 4250, 5.2, [['Currency', .58], ['Gem', .14], ['Unique', .28]], [['$$$', .58, 48], ['Quad', .30, 210], ['Gem', .12, 22]], [{ at: now - 12 * 60000, name: 'Mageblood, Heavy Belt', total: 26000 }, { at: now - 200 * 60000, name: 'Awakened Enlighten Support', total: 5200 }]),
+    mk('Deniz', 41900, 1900, 7.1, [['Currency', .35], ['Map', .3], ['Ekipman', .35]], [['C', .35, 40], ['Farm', .40, 160], ['Rare', .25, 55]]),
+  ];
+}
+
+async function load() {
+  const repo = repoFromLocation();
+  if (!repo) return demoData();
+  const list = await fetch(`https://api.github.com/repos/${repo}/contents/data?t=${Date.now()}`, { cache: 'no-store' });
+  if (list.status === 404) return [];
+  if (!list.ok) throw new Error(`Veri klasörü okunamadı (HTTP ${list.status}). Biraz sonra tekrar dene.`);
+  const files = (await list.json()).filter((f) => f.type === 'file' && f.name.endsWith('.json') && f.download_url);
+  const out = await Promise.all(
+    files.map((f) => fetch(`${f.download_url}?t=${Date.now()}`, { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).catch(() => null))
+  );
+  return out.filter((p) => p && typeof p.player === 'string' && Number.isFinite(p.total));
+}
+
+function chart(history) {
+  const ns = 'http://www.w3.org/2000/svg';
+  const W = 600, H = 90;
+  const t0 = history[0].at, span = Math.max(1, history[history.length - 1].at - t0);
+  const vals = history.map((s) => s.total), min = Math.min(...vals), range = Math.max(1, Math.max(...vals) - min);
+  const pts = history.map((s) => `${(((s.at - t0) / span) * W).toFixed(1)},${(H - 5 - ((s.total - min) / range) * (H - 10)).toFixed(1)}`);
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('class', 'chart'); svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('preserveAspectRatio', 'none');
+  svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', 'Toplam değerin zaman içindeki değişimi');
+  const area = document.createElementNS(ns, 'polygon'); area.setAttribute('class', 'area'); area.setAttribute('points', `0,${H} ${pts.join(' ')} ${W},${H}`);
+  const line = document.createElementNS(ns, 'polyline'); line.setAttribute('class', 'line'); line.setAttribute('points', pts.join(' '));
+  svg.append(area, line);
+  return svg;
+}
+
+function render() {
+  const board = $('board');
+  if (!players.length) {
+    board.replaceChildren(h('div', { class: 'empty' }, 'Henüz kimse skor göndermedi. Uygulamada yarış ayarlarını doldurup bir tarama yapınca burada görünür.'));
+    $('detail').hidden = true;
+    return;
+  }
+  const ranked = rank();
+  const top = Math.max(metric(ranked[0]), 0) || 1;
+  if (!ranked.some((p) => p.player === selected)) selected = ranked[0].player;
+  // En hızlı kazanan (en az iki oyuncunun kazancı belliyse) rozet alır.
+  const rates = ranked.filter((p) => typeof p.rate === 'number').map((p) => toDiv(p, p.rate));
+  const fastest = rates.length >= 2 ? Math.max(...rates) : null;
+  board.replaceChildren(
+    ...ranked.map((p, i) => {
+      const d = toDiv(p, p.total);
+      const m = metric(p);
+      const rate = p.rate === null || p.rate === undefined ? null : toDiv(p, p.rate);
+      const stale = Date.now() - p.updatedAt > 45 * 60000;
+      const gap = mode !== 'total' ? `toplam ${divText(d)}` : i === 0 ? 'lider' : `liderin ${divText(top - d)} gerisinde`;
+      return h(
+        'button',
+        { class: `rowp ${p.player === selected ? 'on' : ''}`, 'aria-pressed': String(p.player === selected), onclick: () => { selected = p.player; render(); } },
+        h('span', { class: 'rank' }, i + 1),
+        h('span', { class: 'name' }, p.player, rate !== null && rate === fastest && rate > 0 ? h('span', { class: 'pill' }, 'en hızlı') : null,
+          h('small', { class: stale ? 'stale' : '' }, `${gap} · ${ago(p.updatedAt)}${stale ? ' (güncel değil)' : ''}`)),
+        h('span', { class: 'meter' }, h('span', { style: `width:${Math.max(2, Math.min(100, ((Number.isFinite(m) ? m : 0) / top) * 100))}%` })),
+        h('span', { class: 'score' }, h('b', {}, mode === 'total' ? divText(d) : Number.isFinite(m) ? signed(m) : '–'), h('small', { class: rate === null ? '' : rate >= 0 ? 'up' : 'down' }, rate === null ? 'kazanç bekleniyor' : `${signed(rate)}/sa`))
+      );
+    })
+  );
+  // Karakterlerin poe.ninja sayfaları: tek tıkla yeni sekmede açılır.
+  const withNinja = ranked.filter((p) => ninjaUrl(p));
+  if (withNinja.length) {
+    board.append(h('div', { class: 'links' }, h('span', { class: 'muted' }, 'poe.ninja:'), ...withNinja.map((p) => h('a', { class: 'btn', href: ninjaUrl(p), target: '_blank', rel: 'noopener noreferrer' }, p.player))));
+  }
+  renderDetail(ranked, ranked.find((p) => p.player === selected));
+  renderRace();
+  renderFeed();
+  for (const b of document.querySelectorAll('#mode button')) {
+    b.classList.toggle('on', b.dataset.mode === mode);
+    b.setAttribute('aria-pressed', String(b.dataset.mode === mode));
+  }
+  const leagues = [...new Set(players.map((p) => p.league).filter(Boolean))];
+  $('meta').textContent = `${leagues.join(', ')}${repoFromLocation() ? '' : ' · örnek veri'}`;
+}
+
+// Yarış kuralı: deponun kökündeki race.json dosyasından okunur (yoksa bu kutu görünmez).
+function renderRace() {
+  const el = $('race');
+  if (!race) {
+    el.hidden = true;
+    return;
+  }
+  el.hidden = false;
+  const now = Date.now();
+  const start = Date.parse(race.start);
+  const end = Date.parse(race.end);
+  const byTotal = [...players].sort((a, b) => toDiv(b, b.total) - toDiv(a, a.total));
+  const leader = byTotal[0];
+  const goal = Number(race.goal) > 0 ? Number(race.goal) : 0;
+  const reached = goal ? byTotal.filter((p) => toDiv(p, p.total) >= goal) : [];
+  let status;
+  if (reached.length) status = `${reached[0].player} hedefe ulaştı (${divText(toDiv(reached[0], reached[0].total))})`;
+  else if (start && now < start) status = `Başlamasına ${dur(start - now)}`;
+  else if (end && now >= end) status = leader ? `Yarış bitti. Kazanan: ${leader.player} (${divText(toDiv(leader, leader.total))})` : 'Yarış bitti.';
+  else status = end ? `Bitişe ${dur(end - now)}` : 'Yarış sürüyor';
+  const day = (t) => new Date(t).toLocaleString('tr-TR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+  el.replaceChildren(
+    h('b', {}, race.name || 'Yarış'),
+    h('span', { class: 'st' }, status),
+    goal ? h('span', { class: 'muted' }, `Hedef: ${divText(goal)}${leader && !reached.length ? `, lidere ${divText(Math.max(0, goal - toDiv(leader, leader.total)))} kaldı` : ''}`) : null,
+    start && end ? h('span', { class: 'muted' }, `${day(start)} ile ${day(end)} arası`) : null
+  );
+}
+
+// Bütün oyuncuların son büyük düşüşleri, en yeni en üstte.
+function renderFeed() {
+  const el = $('feed');
+  const drops = players.flatMap((p) => (p.drops || []).map((d) => ({ ...d, p }))).sort((a, b) => b.at - a.at).slice(0, 12);
+  el.hidden = !drops.length;
+  if (!drops.length) return;
+  el.replaceChildren(
+    h('h2', {}, 'Son büyük düşüşler'),
+    h('div', {}, ...drops.map((d) => h('div', { class: 'drop' }, h('span', { class: 'who' }, d.p.player), h('span', { class: 'what' }, d.name), h('span', { class: 'val' }, divText(toDiv(d.p, d.total))), h('span', { class: 'muted' }, ago(d.at)))))
+  );
+}
+
+function renderDetail(ranked, p) {
+  const el = $('detail');
+  el.hidden = false;
+  const idx = ranked.indexOf(p);
+  const go = (step) => { selected = ranked[(idx + step + ranked.length) % ranked.length].player; render(); };
+  const d = toDiv(p, p.total);
+  const rate = p.rate === null || p.rate === undefined ? null : toDiv(p, p.rate);
+  const stat = (k, v, cls) => h('div', { class: 'stat' }, h('div', { class: 'k' }, k), h('div', { class: `v ${cls || ''}` }, v));
+  const parts = [
+    h('div', { class: 'nav' }, h('h2', {}, `${idx + 1}. ${p.player}`), ninjaUrl(p) ? h('a', { class: 'btn', href: ninjaUrl(p), target: '_blank', rel: 'noopener noreferrer' }, 'poe.ninja karakteri') : null, h('span', { class: 'spacer' }),
+      ranked.length > 1 ? h('button', { onclick: () => go(-1), 'aria-label': 'Önceki oyuncu' }, '← Önceki') : null,
+      ranked.length > 1 ? h('button', { onclick: () => go(1), 'aria-label': 'Sonraki oyuncu' }, 'Sonraki →') : null),
+    h('div', { class: 'dhead' },
+      h('div', {}, h('div', { class: 'muted' }, 'Toplam değer'), h('div', { class: 'big' }, divText(d).replace(' div', ''), h('small', {}, 'divine')), h('div', { class: 'muted' }, `${chaosText(p.total)} · 1 div = ${chaosText(p.divine)}`)),
+      h('div', { class: 'stats' },
+        stat('Saatlik kazanç', rate === null ? '–' : `${signed(rate)}/sa`, rate === null ? '' : rate >= 0 ? 'up' : 'down'),
+        stat('Seans', p.hours > 0 ? `${Math.floor(p.hours)} sa ${Math.round((p.hours % 1) * 60)} dk` : '–'),
+        stat('Seans kazancı', p.hours > 0 ? signed(toDiv(p, p.gain)) : '–', p.gain >= 0 ? 'up' : 'down'),
+        stat('Eşya', nf.format(p.count || 0)))),
+  ];
+  if (Array.isArray(p.history) && p.history.length >= 2) parts.push(chart(p.history));
+  const cats = (p.categories || []).filter((c) => c.total > 0);
+  if (cats.length && p.total > 0) {
+    parts.push(h('div', {},
+      h('h2', {}, 'Nereden geliyor: kategoriler'),
+      h('div', { class: 'bar', style: 'margin-top:10px' }, ...cats.map((c, i) => h('span', { style: `width:${(c.total / p.total) * 100}%;background:${COLORS[i % COLORS.length]}` }))),
+      h('div', { class: 'legend' }, ...cats.map((c, i) => h('span', {}, h('i', { style: `background:${COLORS[i % COLORS.length]}` }), c.label, h('b', {}, divText(toDiv(p, c.total))), `%${nf.format((c.total / p.total) * 100)}`)))));
+  }
+  const srcs = (p.sources || []).filter((s) => s.total > 0).sort((a, b) => b.total - a.total);
+  if (srcs.length) {
+    const max = srcs[0].total || 1;
+    parts.push(h('div', {},
+      h('h2', {}, 'Nereden geliyor: sekmeler'),
+      h('div', { style: 'margin-top:6px' }, ...srcs.map((s) => h('div', { class: 'src' },
+        h('span', { class: 'n' }, s.name, h('small', {}, `${nf.format(s.count)} eşya`)),
+        h('span', { class: 'meter' }, h('span', { style: `width:${Math.max(2, (s.total / max) * 100)}%` })),
+        h('span', { class: 'v' }, divText(toDiv(p, s.total))))))));
+  }
+  el.replaceChildren(...parts);
+}
+
+async function loadRace() {
+  try {
+    const r = await fetch(`race.json?t=${Date.now()}`, { cache: 'no-store' });
+    const j = r.ok ? await r.json() : null;
+    return j && typeof j === 'object' ? j : null;
+  } catch {
+    return null;
+  }
+}
+
+async function refresh() {
+  try {
+    [players, race] = await Promise.all([load(), loadRace()]);
+    render();
+  } catch (e) {
+    $('board').replaceChildren(h('div', { class: 'empty' }, e.message));
+  }
+}
+$('refresh').addEventListener('click', refresh);
+for (const b of document.querySelectorAll('#mode button')) b.addEventListener('click', () => { mode = b.dataset.mode; render(); });
+setInterval(() => players.length && renderRace(), 60000);
+document.addEventListener('keydown', (e) => {
+  if (!players.length || (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft')) return;
+  const ranked = rank();
+  const i = ranked.findIndex((p) => p.player === selected);
+  selected = ranked[(i + (e.key === 'ArrowRight' ? 1 : -1) + ranked.length) % ranked.length].player;
+  render();
+});
+setInterval(refresh, 3 * 60 * 1000);
+refresh();
+</script>
+</body>
+</html>
