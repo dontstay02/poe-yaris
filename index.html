@@ -32,6 +32,11 @@ h1 { margin: 0; font-size: 20px; font-weight: 650; letter-spacing: -.015em; }
 h2 { margin: 0; font-size: 14px; font-weight: 600; }
 .muted { color: var(--muted); font-size: 13px; }
 .spacer { margin-left: auto; }
+select { font: inherit; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: 9px; padding: 5px 10px; min-height: 36px; cursor: pointer; }
+select:hover { border-color: var(--border-strong); }
+select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.others { padding: 10px 16px; border-top: 1px solid var(--border); color: var(--muted); font-size: 12.5px; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
+.others button { min-height: 28px; padding: 2px 10px; font-size: 12.5px; }
 button { font: inherit; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: 9px; padding: 6px 12px; min-height: 36px; cursor: pointer; font-weight: 500; }
 button:hover { background: var(--surface-3); border-color: var(--border-strong); }
 button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -107,6 +112,7 @@ a.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     <span class="logo" aria-hidden="true"></span>
     <h1>Div Yarışı</h1>
     <span id="leagueTab" class="ltab" hidden></span>
+    <select id="leagueSel" aria-label="Lig" hidden></select>
     <span id="meta" class="muted"></span>
     <span class="spacer"></span>
     <div class="seg" id="mode" role="group" aria-label="Sıralama">
@@ -151,6 +157,9 @@ const I18N = (() => {
     'Div Yarışı': 'Div Race',
     Sıralama: 'Ranking',
     Toplam: 'Total',
+    Lig: 'League',
+    'Diğer liglerde:': 'In other leagues:',
+    'örnek veri': 'sample data',
     Bugün: 'Today',
     'Bu hafta': 'This week',
     Yenile: 'Refresh',
@@ -198,6 +207,8 @@ const I18N = (() => {
     [/^liderin (.+) gerisinde · (.+?)( \(güncel değil\))?$/, (m, a, b, c) => `${a} behind the leader · ${t(b)}${c ? ' (out of date)' : ''}`],
     [/^(lider|toplam .+) · (.+?)( \(güncel değil\))?$/, (m, a, b, c) => `${t(a)} · ${t(b)}${c ? ' (out of date)' : ''}`],
     [/^(.+) · örnek veri$/, (m, a) => `${t(a)} · sample data`],
+    [/^(.+) \(en yeni\)$/, '$1 (newest)'],
+    [/^(.+) sıralamasını göster$/, 'Show the $1 ranking'],
     [/^(.+) hedefe ulaştı \((.+)\)$/, '$1 reached the goal ($2)'],
     [/^Başlamasına (.+)$/, (m, a) => `Starts in ${t(a)}`],
     [/^Yarış bitti\. Kazanan: (.+) \((.+)\)$/, 'The race is over. Winner: $1 ($2)'],
@@ -274,8 +285,39 @@ const nf1 = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 1 });
 const nf2 = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 2 });
 const COLORS = ['#c9bb96', '#dc7c3c', '#2fc4bb', '#b79cf0', '#f5eb7a', '#7d7468', '#7c8cff', '#f87171'];
 
-let players = [];
+let allPlayers = []; // depodaki bütün skorlar
+let players = []; // seçili ligdeki skorlar: sıralama, yarış ve akış bunlarla yapılır
+let league = ''; // seçili lig; boşsa en yeni lig
 let selected = '';
+try {
+  league = localStorage.getItem('yaris.league') || '';
+} catch {
+  /* saklanamıyor */
+}
+
+// Kalıcı ligler (Standard, Hardcore, SSF, Ruthless). Yeni bir lig açıldığında site varsayılan olarak onu gösterir.
+const PERMANENT = /^(standard|hardcore|solo self-found|hardcore ssf|ssf standard|ssf hardcore|ruthless|hardcore ruthless|ssf ruthless|hardcore ssf ruthless)$/i;
+// En yeni lig: kalıcı olmayan (sezonluk) liglerden en son skor gönderileni; hiç yoksa en son güncellenen lig.
+function newestLeague(list) {
+  const last = new Map();
+  for (const p of list) if (p.league) last.set(p.league, Math.max(last.get(p.league) || 0, p.updatedAt || 0));
+  const all = [...last.entries()].sort((a, b) => b[1] - a[1]);
+  const seasonal = all.filter(([n]) => !PERMANENT.test(n));
+  return ((seasonal[0] || all[0]) || [''])[0];
+}
+function applyLeague() {
+  const names = [...new Set(allPlayers.map((p) => p.league).filter(Boolean))];
+  const newest = newestLeague(allPlayers);
+  // Kayıtlı seçim artık hiç oyuncusu olmayan bir ligse en yeniye dön.
+  const current = league && names.includes(league) ? league : newest;
+  players = current ? allPlayers.filter((p) => p.league === current) : allPlayers;
+  const sel = $('leagueSel');
+  sel.hidden = names.length < 2;
+  const order = [newest, ...names.filter((n) => n !== newest).sort()];
+  sel.replaceChildren(...order.filter(Boolean).map((n) => h('option', { value: n }, n === newest ? `${n} (en yeni)` : n)));
+  sel.value = current;
+  return current;
+}
 let race = null; // race.json: { name, start, end, goal, leagueName, leagueStart, leagueStartConfirmed }
 
 // Yeni lig: GGG 3.30 için 13 Kasım 2026'yı açıkladı ama başlama saatini açıklamadı.
@@ -414,6 +456,14 @@ function render() {
   if (withNinja.length) {
     board.append(h('div', { class: 'links' }, h('span', { class: 'muted' }, 'poe.ninja:'), ...withNinja.map((p) => h('a', { class: 'btn', href: ninjaUrl(p), target: '_blank', rel: 'noopener noreferrer' }, p.player))));
   }
+  const current = $('leagueSel').value;
+  const others = allPlayers.filter((p) => p.league && p.league !== current);
+  if (others.length) {
+    board.append(
+      h('div', { class: 'others' }, h('span', {}, 'Diğer liglerde:'),
+        ...others.map((p) => h('button', { type: 'button', title: `${p.league} sıralamasını göster`, onclick: () => setLeague(p.league, p.player) }, `${p.player} · ${p.league}`)))
+    );
+  }
   renderDetail(ranked, ranked.find((p) => p.player === selected));
   renderRace();
   renderFeed();
@@ -421,8 +471,9 @@ function render() {
     b.classList.toggle('on', b.dataset.mode === mode);
     b.setAttribute('aria-pressed', String(b.dataset.mode === mode));
   }
-  const leagues = [...new Set(players.map((p) => p.league).filter(Boolean))];
-  $('meta').textContent = `${leagues.join(', ')}${repoFromLocation() ? '' : ' · örnek veri'}`;
+  // Tek lig varsa adı yazı olarak, birden fazlaysa seçicide görünür.
+  const single = $('leagueSel').hidden ? current : '';
+  $('meta').textContent = [single, repoFromLocation() ? '' : 'örnek veri'].filter(Boolean).join(' · ');
 }
 
 // Yarış kuralı: deponun kökündeki race.json dosyasından okunur (yoksa bu kutu görünmez).
@@ -556,7 +607,8 @@ async function loadRace() {
 
 async function refresh() {
   try {
-    [players, race] = await Promise.all([load(), loadRace()]);
+    [allPlayers, race] = await Promise.all([load(), loadRace()]);
+    applyLeague();
     renderLeague();
     render();
   } catch (e) {
@@ -579,6 +631,20 @@ setInterval(renderLeague, 30000);
 refreshButton();
 renderLeague();
 for (const b of document.querySelectorAll('#mode button')) b.addEventListener('click', () => { mode = b.dataset.mode; render(); });
+function setLeague(name, player) {
+  // En yeni lig seçilirse kayıt silinir: yeni lig açılınca site kendiliğinden ona geçsin.
+  league = name === newestLeague(allPlayers) ? '' : name;
+  try {
+    if (league) localStorage.setItem('yaris.league', league);
+    else localStorage.removeItem('yaris.league');
+  } catch {
+    /* saklanamıyor */
+  }
+  applyLeague();
+  if (player) selected = player;
+  render();
+}
+$('leagueSel').addEventListener('change', (e) => setLeague(e.target.value));
 setInterval(() => players.length && renderRace(), 60000);
 document.addEventListener('keydown', (e) => {
   if (!players.length || (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft')) return;
